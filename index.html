@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Étudiant Malin - Gestion du temps universitaire</title>
+    <!-- Bootstrap 5 CSS uniquement -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome pour les icônes (améliore l'aspect mais reste standard) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Styles personnalisés minimes - seulement pour les ajustements que Bootstrap ne gère pas */
+        .task-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1) !important;
+        }
+        .task-overdue {
+            border-left: 4px solid #dc3545;
+        }
+        .task-completed {
+            opacity: 0.7;
+            background-color: #f8f9fa !important;
+        }
+        .task-completed .task-title {
+            text-decoration: line-through;
+        }
+        .week-day-card {
+            min-height: 120px;
+        }
+        .timer-btn {
+            min-width: 80px;
+        }
+        @media (max-width: 768px) {
+            .task-actions {
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navigation simple -->
+    <nav class="navbar navbar-dark bg-primary shadow-sm">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-graduation-cap me-2"></i>Étudiant Malin
+            </span>
+            <span class="text-white-50 small">
+                <i class="far fa-calendar-alt me-1"></i>Gestion du temps
+            </span>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        
+        <!-- En-tête avec bienvenue -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="bg-white rounded-3 shadow-sm p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <div>
+                            <h1 class="display-6 fw-bold text-primary mb-2">
+                                <i class="fas fa-clock me-2"></i>Organise ton temps
+                            </h1>
+                            <p class="text-secondary mb-0">Gère tes cours, révisions et projets efficacement</p>
+                        </div>
+                        <div class="mt-2 mt-sm-0">
+                            <div class="bg-light rounded-pill px-3 py-2">
+                                <i class="far fa-calendar-check text-primary me-2"></i>
+                                <span id="currentDate" class="fw-semibold"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques rapides -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title text-white-50 mb-1">Total tâches</h6>
+                                <h2 class="display-6 fw-bold mb-0" id="totalTasks">0</h2>
+                            </div>
+                            <i class="fas fa-tasks fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title text-white-50 mb-1">Terminées</h6>
+                                <h2 class="display-6 fw-bold mb-0" id="completedTasks">0</h2>
+                            </div>
+                            <i class="fas fa-check-circle fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm bg-warning text-dark">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title text-dark-50 mb-1">En cours</h6>
+                                <h2 class="display-6 fw-bold mb-0" id="pendingTasks">0</h2>
+                            </div>
+                            <i class="fas fa-hourglass-half fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone principale : formulaire + planning semaine -->
+        <div class="row g-4 mb-4">
+            <!-- Formulaire d'ajout -->
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="card-title fw-bold mb-0">
+                            <i class="fas fa-plus-circle text-primary me-2"></i>Nouvelle tâche
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="taskForm">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="fas fa-tag me-1 text-secondary"></i>Titre
+                                </label>
+                                <input type="text" class="form-control" id="taskTitle" placeholder="Ex: Réviser algorithmique, Rendre projet..." required>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">
+                                        <i class="far fa-calendar me-1 text-secondary"></i>Date limite
+                                    </label>
+                                    <input type="datetime-local" class="form-control" id="taskDeadline" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">
+                                        <i class="fas fa-clock me-1 text-secondary"></i>Durée (min)
+                                    </label>
+                                    <input type="number" class="form-control" id="taskDuration" value="60" min="5" step="5">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    <i class="fas fa-folder me-1 text-secondary"></i>Catégorie
+                                </label>
+                                <select class="form-select" id="taskCategory">
+                                    <option value="Cours">📖 Cours magistral</option>
+                                    <option value="Révision">🧠 Révision / Révision</option>
+                                    <option value="Projet">💻 Projet / Code</option>
+                                    <option value="TD">📝 TD / Exercices</option>
+                                    <option value="Admin">📑 Administratif</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                                <i class="fas fa-save me-2"></i>Ajouter au planning
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Aperçu de la semaine -->
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pt-4 pb-0">
+                        <h5 class="card-title fw-bold mb-0">
+                            <i class="fas fa-calendar-week text-primary me-2"></i>Semaine à venir
+                        </h5>
+                        <p class="text-secondary small mt-1">Tâches planifiées des 7 prochains jours</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2" id="weekOverview">
+                            <!-- Dynamique via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des tâches -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center flex-wrap">
+                        <h5 class="card-title fw-bold mb-0">
+                            <i class="fas fa-list-check text-primary me-2"></i>Mes missions
+                        </h5>
+                        <button id="clearCompletedBtn" class="btn btn-outline-secondary btn-sm mt-2 mt-sm-0">
+                            <i class="fas fa-trash-alt me-1"></i>Nettoyer terminées
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="tasksContainer">
+                            <div class="text-center text-secondary py-5">
+                                <i class="fas fa-inbox fa-3x mb-3 opacity-50"></i>
+                                <p>Aucune tâche pour le moment</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Pomodoro -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm bg-dark text-white">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <h5 class="fw-bold mb-1">
+                                    <i class="fas fa-hourglass-half me-2"></i>Focus Timer
+                                </h5>
+                                <p class="text-white-50 small mb-0">Technique Pomodoro 25/5</p>
+                            </div>
+                            <div class="col-md-4 text-center mb-3 mb-md-0">
+                                <span class="display-4 fw-bold font-monospace" id="timerDisplay">25:00</span>
+                            </div>
+                            <div class="col-md-4 text-md-end">
+                                <div class="btn-group" role="group">
+                                    <button id="startTimerBtn" class="btn btn-outline-light timer-btn">
+                                        <i class="fas fa-play me-1"></i>Démarrer
+                                    </button>
+                                    <button id="pauseTimerBtn" class="btn btn-outline-light timer-btn">
+                                        <i class="fas fa-pause me-1"></i>Pause
+                                    </button>
+                                    <button id="resetTimerBtn" class="btn btn-outline-light timer-btn">
+                                        <i class="fas fa-redo me-1"></i>Reset
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer simple -->
+        <footer class="mt-5 pt-3 text-center text-secondary small border-top">
+            <i class="fas fa-brain me-1"></i> Gère ton temps, réussis tes études
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS Bundle (nécessaire pour certains composants) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // ==================== GESTION DES TÂCHES ====================
+        let tasks = [];
+
+        // Chargement depuis localStorage
+        function loadTasks() {
+            const stored = localStorage.getItem("uniTimeManagerV2");
+            if (stored) {
+                tasks = JSON.parse(stored);
+            } else {
+                // Données de démonstration réalistes
+                const now = new Date();
+                tasks = [
+                    {
+                        id: Date.now() + 1,
+                        title: "Préparer exposé de sociologie",
+                        deadline: getFutureDate(2, 14),
+                        category: "Cours",
+                        duration: 120,
+                        completed: false,
+                        createdAt: Date.now()
+                    },
+                    {
+                        id: Date.now() + 2,
+                        title: "Révision examen maths discrètes",
+                        deadline: getFutureDate(4, 18),
+                        category: "Révision",
+                        duration: 180,
+                        completed: false,
+                        createdAt: Date.now()
+                    },
+                    {
+                        id: Date.now() + 3,
+                        title: "Rendre projet architecture web",
+                        deadline: getFutureDate(5, 23, 59),
+                        category: "Projet",
+                        duration: 240,
+                        completed: false,
+                        createdAt: Date.now()
+                    },
+                    {
+                        id: Date.now() + 4,
+                        title: "Lecture chapitre 3 - Psychologie",
+                        deadline: getFutureDate(1, 10),
+                        category: "Cours",
+                        duration: 45,
+                        completed: true,
+                        createdAt: Date.now()
+                    }
+                ];
+            }
+            renderAll();
+        }
+
+        function getFutureDate(days, hour, minute = 0) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            d.setHours(hour, minute, 0, 0);
+            return d.toISOString().slice(0, 16);
+        }
+
+        function saveTasks() {
+            localStorage.setItem("uniTimeManagerV2", JSON.stringify(tasks));
+        }
+
+        function addTask(title, deadline, category, duration) {
+            const newTask = {
+                id: Date.now(),
+                title: title.trim(),
+                deadline: deadline,
+                category: category,
+                duration: parseInt(duration),
+                completed: false,
+                createdAt: Date.now()
+            };
+            tasks.push(newTask);
+            saveTasks();
+            renderAll();
+        }
+
+        function toggleComplete(taskId) {
+            const task = tasks.find(t => t.id == taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderAll();
+            }
+        }
+
+        function deleteTask(taskId) {
+            tasks = tasks.filter(t => t.id != taskId);
+            saveTasks();
+            renderAll();
+        }
+
+        function clearCompleted() {
+            tasks = tasks.filter(t => !t.completed);
+            saveTasks();
+            renderAll();
+        }
+
+        // Vérifier si une tâche est en retard
+        function isOverdue(task) {
+            if (task.completed) return false;
+            if (!task.deadline) return false;
+            const now = new Date();
+            const deadlineDate = new Date(task.deadline);
+            return deadlineDate < now;
+        }
+
+        // Formater date lisible
+        function formatDeadline(deadlineStr) {
+            if (!deadlineStr) return "Non définie";
+            const d = new Date(deadlineStr);
+            if (isNaN(d)) return "Date invalide";
+            return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Obtenir la couleur de badge selon catégorie
+        function getCategoryBadge(category) {
+            const badges = {
+                'Cours': 'primary',
+                'Révision': 'success',
+                'Projet': 'warning',
+                'TD': 'info',
+                'Admin': 'secondary'
+            };
+            return badges[category] || 'secondary';
+        }
+
+        // Afficher la liste des tâches
+        function renderTaskList() {
+            const container = document.getElementById("tasksContainer");
+            if (!container) return;
+            
+            if (tasks.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-secondary py-5">
+                        <i class="fas fa-smile-wink fa-3x mb-3 opacity-50"></i>
+                        <p>Rien à faire pour l'instant !<br>Ajoute une tâche ci-dessus.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sorted = [...tasks].sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+                return 0;
+            });
+
+            container.innerHTML = sorted.map(task => {
+                const overdue = isOverdue(task);
+                const completedClass = task.completed ? "task-completed" : "";
+                const overdueClass = overdue && !task.completed ? "task-overdue" : "";
+                const badgeColor = getCategoryBadge(task.category);
+                
+                return `
+                    <div class="card mb-2 task-card ${completedClass} ${overdueClass}">
+                        <div class="card-body py-3">
+                            <div class="row align-items-center">
+                                <div class="col-md-7 mb-2 mb-md-0">
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <h6 class="fw-bold mb-0 task-title">${escapeHtml(task.title)}</h6>
+                                        ${overdue && !task.completed ? '<span class="badge bg-danger">En retard</span>' : ''}
+                                        ${task.completed ? '<span class="badge bg-success">Terminé</span>' : ''}
+                                    </div>
+                                    <div class="small text-secondary mt-1">
+                                        <i class="far fa-calendar-alt me-1"></i>${formatDeadline(task.deadline)}
+                                        <span class="mx-1">•</span>
+                                        <i class="fas fa-hourglass-half me-1"></i>${task.duration} min
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-2 mb-md-0">
+                                    <span class="badge bg-${badgeColor} bg-opacity-10 text-${badgeColor} p-2">
+                                        <i class="fas fa-folder me-1"></i>${task.category}
+                                    </span>
+                                </div>
+                                <div class="col-md-2 task-actions">
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <button class="btn btn-outline-success complete-btn" data-id="${task.id}" title="${task.completed ? 'Annuler' : 'Terminer'}">
+                                            <i class="fas ${task.completed ? 'fa-undo' : 'fa-check'}"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger delete-btn" data-id="${task.id}" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Attacher les événements
+            document.querySelectorAll('.complete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(btn.dataset.id);
+                    toggleComplete(id);
+                });
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(btn.dataset.id);
+                    deleteTask(id);
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Mettre à jour les statistiques
+        function updateStats() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = total - completed;
+            document.getElementById("totalTasks").innerText = total;
+            document.getElementById("completedTasks").innerText = completed;
+            document.getElementById("pendingTasks").innerText = pending;
+        }
+
+        // Vue semaine
+        function renderWeekView() {
+            const container = document.getElementById("weekOverview");
+            if (!container) return;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+            const currentWeekDay = today.getDay();
+            const diffToMonday = (currentWeekDay === 0 ? -6 : 1 - currentWeekDay);
+            const startDate = new Date(today);
+            startDate.setDate(today.getDate() + diffToMonday);
+            
+            let weekHtml = '';
+            
+            for (let i = 0; i < 7; i++) {
+                const currentDay = new Date(startDate);
+                currentDay.setDate(startDate.getDate() + i);
+                const dateStr = currentDay.toISOString().slice(0, 10);
+                const dayName = days[i];
+                const dayNumber = currentDay.getDate();
+                
+                const tasksOfDay = tasks.filter(t => {
+                    if (t.completed) return false;
+                    if (!t.deadline) return false;
+                    const taskDate = new Date(t.deadline);
+                    const taskDateOnly = taskDate.toISOString().slice(0, 10);
+                    return taskDateOnly === dateStr;
+                });
+                
+                weekHtml += `
+                    <div class="col-6 col-sm-3 col-md mb-2">
+                        <div class="card border-0 bg-light h-100 week-day-card">
+                            <div class="card-body p-2 text-center">
+                                <div class="fw-bold">${dayName}</div>
+                                <div class="small text-secondary">${dayNumber}</div>
+                                <hr class="my-1">
+                                <div style="max-height: 100px; overflow-y: auto;">
+                                    ${tasksOfDay.length ? tasksOfDay.map(t => `
+                                        <div class="small text-start mb-1 p-1 bg-white rounded">
+                                            <i class="fas fa-circle fa-2xs text-primary me-1"></i>
+                                            ${escapeHtml(t.title.substring(0, 20))}${t.title.length > 20 ? '...' : ''}
+                                            <span class="text-secondary">(${t.duration}min)</span>
+                                        </div>
+                                    `).join('') : '<div class="small text-secondary mt-1">—</div>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = weekHtml;
+        }
+
+        function renderAll() {
+            renderTaskList();
+            updateStats();
+            renderWeekView();
+        }
+
+        // ==================== FORMULAIRE ====================
+        const form = document.getElementById("taskForm");
+        if (form) {
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const title = document.getElementById("taskTitle").value;
+                const deadline = document.getElementById("taskDeadline").value;
+                const category = document.getElementById("taskCategory").value;
+                const duration = document.getElementById("taskDuration").value;
+                
+                if (!title || !deadline) {
+                    alert("Veuillez remplir le titre et la date limite");
+                    return;
+                }
+                
+                addTask(title, deadline, category, duration);
+                form.reset();
+                
+                // Date par défaut pour le prochain ajout
+                const defaultDate = new Date();
+                defaultDate.setDate(defaultDate.getDate() + 1);
+                defaultDate.setHours(18, 0, 0, 0);
+                document.getElementById("taskDeadline").value = defaultDate.toISOString().slice(0, 16);
+                document.getElementById("taskTitle").focus();
+            });
+        }
+        
+        document.getElementById("clearCompletedBtn")?.addEventListener("click", () => {
+            if (confirm("Supprimer toutes les tâches terminées ?")) {
+                clearCompleted();
+            }
+        });
+
+        // ==================== PO MODORO TIMER ====================
+        let timerInterval = null;
+        let timerSeconds = 25 * 60;
+        let isRunning = false;
+        const timerDisplay = document.getElementById("timerDisplay");
+        
+        function updateTimerUI() {
+            const mins = Math.floor(timerSeconds / 60);
+            const secs = timerSeconds % 60;
+            if (timerDisplay) {
+                timerDisplay.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            isRunning = true;
+            timerInterval = setInterval(() => {
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    isRunning = false;
+                    alert("🍅 Temps écoulé ! Prends une pause de 5 minutes.");
+                    timerSeconds = 25 * 60;
+                    updateTimerUI();
+                } else {
+                    timerSeconds--;
+                    updateTimerUI();
+                }
+            }, 1000);
+        }
+        
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                isRunning = false;
+            }
+        }
+        
+        function resetTimer() {
+            pauseTimer();
+            timerSeconds = 25 * 60;
+            updateTimerUI();
+        }
+        
+        document.getElementById("startTimerBtn")?.addEventListener("click", startTimer);
+        document.getElementById("pauseTimerBtn")?.addEventListener("click", pauseTimer);
+        document.getElementById("resetTimerBtn")?.addEventListener("click", resetTimer);
+        updateTimerUI();
+
+        // ==================== AFFICHAGE DATE ====================
+        function setCurrentDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById("currentDate").innerHTML = `${now.toLocaleDateString('fr-FR', options)}`;
+        }
+        
+        function setDefaultDeadlineInput() {
+            const defaultDate = new Date();
+            defaultDate.setDate(defaultDate.getDate() + 1);
+            defaultDate.setHours(18, 0, 0, 0);
+            const inputDeadline = document.getElementById("taskDeadline");
+            if (inputDeadline && !inputDeadline.value) {
+                inputDeadline.value = defaultDate.toISOString().slice(0, 16);
+            }
+        }
+        
+        // Initialisation
+        loadTasks();
+        setCurrentDate();
+        setDefaultDeadlineInput();
+    </script>
+</body>
+</html>
